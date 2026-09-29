@@ -67,6 +67,28 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+## Examples
+
+All examples automatically load your DeepSeek API key from a `.env` file using [`dotenvy`](https://crates.io/crates/dotenvy) (or from the `DEEPSEEK_API_KEY` environment variable).
+
+1. Copy [`.env.example`](.env.example) to `.env` and add your API key:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Run any example using `cargo run --example <name>`:
+
+| Example | Description | Command |
+|---|---|---|
+| **Basic Chat** | Standard chat completion with DeepSeek-Chat (V3) and cache metrics | `cargo run --example basic_chat` |
+| **Streaming Reasoner** | Real-time SSE streaming with DeepSeek-Reasoner (R1), displaying thinking tokens vs answer tokens | `cargo run --example streaming_reasoner` |
+| **Multi-Turn Reasoning** | Multi-turn chat with DeepSeek-R1, automatically preserving `reasoning_content` | `cargo run --example multi_turn_reasoning` |
+| **Function Calling** | OpenAI-compatible tool calling, handling invocations and returning results | `cargo run --example function_calling` |
+| **Streaming Tools** | Streaming tool call deltas aggregated using `ToolCallAccumulator` | `cargo run --example streaming_tools` |
+| **Structured JSON** | JSON mode (`ResponseFormat::JsonObject`) deserialized into typed Rust structs | `cargo run --example structured_json` |
+| **Prefix Completion** | Forcing assistant prefix completion with `prefix: true` | `cargo run --example prefix_completion` |
+
 ## License
 
 Licensed under the Apache License, Version 2.0 ([LICENSE](LICENSE)).
+

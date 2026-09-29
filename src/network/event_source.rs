@@ -72,49 +72,107 @@ impl Decoder for ServerSentEventsCodec {
         &mut self,
         src: &mut tokio_util::bytes::BytesMut,
     ) -> std::result::Result<Option<Self::Item>, Self::Error> {
-        let res = self.lines_codec.decode(src)?;
+        loop {
+            let res = self.lines_codec.decode(src)?;
 
-        let Some(mut line) = res else {
-            return Ok(None);
-        };
-
-        // Empty line indicates dispatch of the current event.
-        if line.is_empty() {
-            if self.next.data.is_some() || self.next.event.is_some() {
-                let result = mem::take(&mut self.next);
-                return Ok(Some(result));
-            }
-            return Ok(None);
-        }
-
-        // SSE comment lines (e.g. keep-alive ping : ping)
-        if line.starts_with(':') {
-            return Ok(None);
-        }
-
-        if line.starts_with(EVENT) {
-            line.drain(..EVENT.len());
-            self.next.event = Some(line);
-        } else if line.starts_with(DATA) {
-            line.drain(..DATA.len());
-            if let Some(ref mut existing) = self.next.data {
-                existing.push('\n');
-                existing.push_str(&line);
-            } else {
-                self.next.data = Some(line);
-            }
-        } else if line.starts_with(ID) {
-            line.drain(..ID.len());
-            self.next.id = Some(line);
-        } else if line.starts_with(RETRY) {
-            line.drain(..RETRY.len());
-            let Ok(retry) = line.parse() else {
-                warn!(line, "Received invalid retry value");
+            let Some(mut line) = res else {
                 return Ok(None);
             };
-            self.next.retry = Some(retry);
+
+            // Empty line indicates dispatch of the current event.
+            if line.is_empty() {
+                if self.next.data.is_some() || self.next.event.is_some() {
+                    let result = mem::take(&mut self.next);
+                    return Ok(Some(result));
+                }
+                continue;
+            }
+
+            // SSE comment lines (e.g. keep-alive ping : ping)
+            if line.starts_with(':') {
+                continue;
+            }
+
+            if line.starts_with(EVENT) {
+                line.drain(..EVENT.len());
+                self.next.event = Some(line);
+            } else if line.starts_with(DATA) {
+                line.drain(..DATA.len());
+                if let Some(ref mut existing) = self.next.data {
+                    existing.push('\n');
+                    existing.push_str(&line);
+                } else {
+                    self.next.data = Some(line);
+                }
+            } else if line.starts_with(ID) {
+                line.drain(..ID.len());
+                self.next.id = Some(line);
+            } else if line.starts_with(RETRY) {
+                line.drain(..RETRY.len());
+                let Ok(retry) = line.parse() else {
+                    warn!(line, "Received invalid retry value");
+                    continue;
+                };
+                self.next.retry = Some(retry);
+            }
+        }
+    }
+
+    fn decode_eof(
+        &mut self,
+        src: &mut tokio_util::bytes::BytesMut,
+    ) -> std::result::Result<Option<Self::Item>, Self::Error> {
+        // First drain all complete events currently in src
+        while let Some(frame) = self.decode(src)? {
+            return Ok(Some(frame));
         }
 
+        // Now drain any final line remaining in src at EOF
+        while let Some(mut line) = self.lines_codec.decode_eof(src)? {
+            if line.is_empty() {
+                if self.next.data.is_some() || self.next.event.is_some() {
+                    let result = mem::take(&mut self.next);
+                    return Ok(Some(result));
+                }
+                continue;
+            }
+
+            if line.starts_with(':') {
+                continue;
+            }
+
+            if line.starts_with(EVENT) {
+                line.drain(..EVENT.len());
+                self.next.event = Some(line);
+            } else if line.starts_with(DATA) {
+                line.drain(..DATA.len());
+                if let Some(ref mut existing) = self.next.data {
+                    existing.push('\n');
+                    existing.push_str(&line);
+                } else {
+                    self.next.data = Some(line);
+                }
+            } else if line.starts_with(ID) {
+                line.drain(..ID.len());
+                self.next.id = Some(line);
+            } else if line.starts_with(RETRY) {
+                line.drain(..RETRY.len());
+                let Ok(retry) = line.parse() else {
+                    warn!(line, "Received invalid retry value");
+                    continue;
+                };
+                self.next.retry = Some(retry);
+            }
+        }
+
+        // If an event was partially buffered, emit it at EOF
+        if self.next.data.is_some() || self.next.event.is_some() {
+            let result = mem::take(&mut self.next);
+            return Ok(Some(result));
+        }
+
+        // Clear any residual bytes (e.g. whitespace, trailing newlines) so FramedRead won't complain
+        src.clear();
         Ok(None)
     }
 }

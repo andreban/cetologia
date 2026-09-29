@@ -32,10 +32,11 @@ impl Tool {
 }
 
 /// Type of tool.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ToolType {
     /// Function tool.
+    #[default]
     Function,
 }
 
@@ -153,3 +154,75 @@ pub struct ChunkFunctionCall {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub arguments: Option<String>,
 }
+
+/// Accumulator for reconstructing [`ToolCall`]s from streaming [`ChunkToolCall`] deltas.
+#[derive(Debug, Clone, Default)]
+pub struct ToolCallAccumulator {
+    calls: Vec<ToolCallBuilder>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct ToolCallBuilder {
+    id: String,
+    tool_type: ToolType,
+    name: String,
+    arguments: String,
+}
+
+impl ToolCallAccumulator {
+    /// Creates a new empty accumulator.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Ingests a streaming tool call delta chunk.
+    pub fn update(&mut self, chunk: &ChunkToolCall) {
+        if chunk.index >= self.calls.len() {
+            self.calls.resize_with(chunk.index + 1, ToolCallBuilder::default);
+        }
+        let builder = &mut self.calls[chunk.index];
+
+        if let Some(ref id) = chunk.id {
+            builder.id.push_str(id);
+        }
+        if let Some(tool_type) = chunk.tool_type {
+            builder.tool_type = tool_type;
+        }
+        if let Some(ref func) = chunk.function {
+            if let Some(ref name) = func.name {
+                builder.name.push_str(name);
+            }
+            if let Some(ref args) = func.arguments {
+                builder.arguments.push_str(args);
+            }
+        }
+    }
+
+    /// Ingests multiple tool call delta chunks (e.g. from `delta.tool_calls`).
+    pub fn update_all<'a>(&mut self, chunks: impl IntoIterator<Item = &'a ChunkToolCall>) {
+        for chunk in chunks {
+            self.update(chunk);
+        }
+    }
+
+    /// Consumes the accumulator and returns the assembled [`ToolCall`]s.
+    pub fn finish(self) -> Vec<ToolCall> {
+        self.calls
+            .into_iter()
+            .map(|b| ToolCall {
+                id: b.id,
+                tool_type: b.tool_type,
+                function: FunctionCall {
+                    name: b.name,
+                    arguments: b.arguments,
+                },
+            })
+            .collect()
+    }
+
+    /// Returns `true` if no tool calls have been accumulated yet.
+    pub fn is_empty(&self) -> bool {
+        self.calls.is_empty()
+    }
+}
+

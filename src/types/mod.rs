@@ -17,5 +17,6 @@ pub use response::{
 };
 pub use tools::{
     ChunkFunctionCall, ChunkToolCall, FunctionCall, FunctionDefinition, NamedToolChoice,
-    NamedToolChoiceFunction, Tool, ToolChoice, ToolChoiceMode, ToolType,
+    NamedToolChoiceFunction, Tool, ToolCall, ToolCallAccumulator, ToolChoice, ToolChoiceMode,
+    ToolType,
 };

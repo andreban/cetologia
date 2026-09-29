@@ -5,6 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::response::ResponseMessage;
 use super::tools::{Tool, ToolChoice};
 
 /// Role of a message in a conversation.
@@ -118,6 +119,34 @@ impl ChatMessage {
             tool_call_id: Some(tool_call_id.into()),
             content: Some(content.into()),
             ..Default::default()
+        }
+    }
+}
+
+impl From<ResponseMessage> for ChatMessage {
+    fn from(msg: ResponseMessage) -> Self {
+        Self {
+            role: msg.role,
+            content: msg.content,
+            name: None,
+            reasoning_content: msg.reasoning_content,
+            tool_calls: msg.tool_calls,
+            tool_call_id: None,
+            prefix: None,
+        }
+    }
+}
+
+impl From<&ResponseMessage> for ChatMessage {
+    fn from(msg: &ResponseMessage) -> Self {
+        Self {
+            role: msg.role,
+            content: msg.content.clone(),
+            name: None,
+            reasoning_content: msg.reasoning_content.clone(),
+            tool_calls: msg.tool_calls.clone(),
+            tool_call_id: None,
+            prefix: None,
         }
     }
 }

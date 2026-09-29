@@ -128,3 +128,77 @@ fn test_deserialize_stream_chunk_with_reasoning_delta() {
     );
     assert_eq!(chunk.choices[0].delta.content, None);
 }
+
+#[test]
+fn test_response_message_into_chat_message() {
+    let resp_msg = ResponseMessage {
+        role: Role::Assistant,
+        content: Some("Answer".to_string()),
+        reasoning_content: Some("Reasoning trace".to_string()),
+        tool_calls: None,
+    };
+
+    let chat_msg: ChatMessage = resp_msg.into();
+    assert_eq!(chat_msg.role, Role::Assistant);
+    assert_eq!(chat_msg.content.as_deref(), Some("Answer"));
+    assert_eq!(chat_msg.reasoning_content.as_deref(), Some("Reasoning trace"));
+}
+
+#[test]
+fn test_tool_call_accumulator() {
+    let mut accumulator = ToolCallAccumulator::new();
+    assert!(accumulator.is_empty());
+
+    let chunk1: ChatCompletionChunk = serde_json::from_value(json!({
+        "id": "chunk-1",
+        "object": "chat.completion.chunk",
+        "created": 1,
+        "model": "deepseek-chat",
+        "choices": [{
+            "index": 0,
+            "delta": {
+                "tool_calls": [{
+                    "index": 0,
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": "{\"location\":"
+                    }
+                }]
+            }
+        }]
+    })).unwrap();
+
+    let chunk2: ChatCompletionChunk = serde_json::from_value(json!({
+        "id": "chunk-2",
+        "object": "chat.completion.chunk",
+        "created": 2,
+        "model": "deepseek-chat",
+        "choices": [{
+            "index": 0,
+            "delta": {
+                "tool_calls": [{
+                    "index": 0,
+                    "function": {
+                        "arguments": "\"Paris\"}"
+                    }
+                }]
+            }
+        }]
+    })).unwrap();
+
+    if let Some(tool_calls) = &chunk1.choices[0].delta.tool_calls {
+        accumulator.update_all(tool_calls);
+    }
+    if let Some(tool_calls) = &chunk2.choices[0].delta.tool_calls {
+        accumulator.update_all(tool_calls);
+    }
+
+    let calls = accumulator.finish();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].id, "call_1");
+    assert_eq!(calls[0].function.name, "get_weather");
+    assert_eq!(calls[0].function.arguments, "{\"location\":\"Paris\"}");
+}
+
