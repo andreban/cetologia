@@ -61,6 +61,6 @@ pub mod prelude {
     };
     pub use crate::types::tools::{
         ChunkFunctionCall, ChunkToolCall, FunctionCall, FunctionDefinition, NamedToolChoice, Tool,
-        ToolChoice, ToolChoiceMode, ToolType,
+        ToolCall, ToolChoice, ToolChoiceMode, ToolType,
     };
 }
