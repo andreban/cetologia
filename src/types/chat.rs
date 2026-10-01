@@ -168,6 +168,26 @@ pub struct StreamOptions {
     pub include_usage: bool,
 }
 
+/// Level of reasoning effort for DeepSeek models in thinking mode.
+///
+/// Supported values are `none` (disables thinking), `low`, `high` (default),
+/// and `max`.
+///
+/// Note: When thinking mode is active, DeepSeek ignores `temperature`,
+/// `presence_penalty`, and `frequency_penalty`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ReasoningEffort {
+    /// Disables thinking mode.
+    None,
+    /// Low reasoning effort.
+    Low,
+    /// High reasoning effort (default for reasoning models).
+    High,
+    /// Maximum reasoning effort.
+    Max,
+}
+
 /// Request body for the DeepSeek `/chat/completions` endpoint.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct ChatCompletionRequest {
@@ -178,6 +198,8 @@ pub struct ChatCompletionRequest {
     pub messages: Vec<ChatMessage>,
 
     /// Frequency penalty between -2.0 and 2.0.
+    ///
+    /// Note: Ignored by DeepSeek when thinking mode is active.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub frequency_penalty: Option<f32>,
 
@@ -186,6 +208,8 @@ pub struct ChatCompletionRequest {
     pub max_tokens: Option<u32>,
 
     /// Presence penalty between -2.0 and 2.0.
+    ///
+    /// Note: Ignored by DeepSeek when thinking mode is active.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub presence_penalty: Option<f32>,
 
@@ -206,12 +230,21 @@ pub struct ChatCompletionRequest {
     pub stream_options: Option<StreamOptions>,
 
     /// Sampling temperature.
+    ///
+    /// Note: Ignored by DeepSeek when thinking mode is active.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f32>,
 
     /// Nucleus sampling threshold.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_p: Option<f32>,
+
+    /// Level of reasoning effort for DeepSeek models in thinking mode.
+    ///
+    /// Note: DeepSeek's thinking mode ignores `temperature`, `presence_penalty`,
+    /// and `frequency_penalty`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning_effort: Option<ReasoningEffort>,
 
     /// Tools available for the model to call.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -266,6 +299,8 @@ impl ChatCompletionRequestBuilder {
     }
 
     /// Sets sampling temperature.
+    ///
+    /// Note: Ignored by DeepSeek when thinking mode is active.
     pub fn temperature(mut self, temp: f32) -> Self {
         self.request.temperature = Some(temp);
         self
@@ -277,6 +312,15 @@ impl ChatCompletionRequestBuilder {
         self
     }
 
+    /// Sets reasoning effort for thinking mode (`none`, `low`, `high`, `max`).
+    ///
+    /// Note: When thinking mode is active, DeepSeek ignores `temperature`,
+    /// `presence_penalty`, and `frequency_penalty`.
+    pub fn reasoning_effort(mut self, effort: ReasoningEffort) -> Self {
+        self.request.reasoning_effort = Some(effort);
+        self
+    }
+
     /// Sets max tokens.
     pub fn max_tokens(mut self, max_tokens: u32) -> Self {
         self.request.max_tokens = Some(max_tokens);
@@ -284,12 +328,16 @@ impl ChatCompletionRequestBuilder {
     }
 
     /// Sets frequency penalty.
+    ///
+    /// Note: Ignored by DeepSeek when thinking mode is active.
     pub fn frequency_penalty(mut self, penalty: f32) -> Self {
         self.request.frequency_penalty = Some(penalty);
         self
     }
 
     /// Sets presence penalty.
+    ///
+    /// Note: Ignored by DeepSeek when thinking mode is active.
     pub fn presence_penalty(mut self, penalty: f32) -> Self {
         self.request.presence_penalty = Some(penalty);
         self

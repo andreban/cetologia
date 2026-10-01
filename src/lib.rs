@@ -52,8 +52,8 @@ pub mod prelude {
     pub use crate::client::{CetologiaClient, CetologiaClientBuilder, DeepSeekClient};
     pub use crate::error::{CetologiaError, Result};
     pub use crate::types::chat::{
-        ChatMessage, ChatCompletionRequest, ChatCompletionRequestBuilder, ResponseFormat, Role,
-        StreamOptions,
+        ChatMessage, ChatCompletionRequest, ChatCompletionRequestBuilder, ReasoningEffort,
+        ResponseFormat, Role, StreamOptions,
     };
     pub use crate::types::response::{
         ChatCompletionChunk, ChatCompletionResponse, Choice, ChunkChoice, ChunkDelta,
