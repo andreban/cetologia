@@ -8,6 +8,7 @@ Named after *cetology* (the scientific study of whales), inspired by DeepSeek's 
 
 - **DeepSeek-Chat (V3) & DeepSeek-Reasoner (R1)**: First-class typed support for all models.
 - **Thinking / Reasoning Tokens**: Full preservation and SSE streaming of `reasoning_content`.
+- **Reasoning Effort**: Set thinking effort per request with `reasoning_effort` (`none`, `low`, `high`, `max`).
 - **Multi-Turn Reasoning Support**: Automatically preserves reasoning traces on assistant turns to avoid DeepSeek 400 Bad Request errors.
 - **OpenAI-Compatible Tool Calling**: Function declarations, tool choice, and streaming tool call chunk aggregation.
 - **Prompt Caching Metrics**: Exposes `prompt_cache_hit_tokens` and `prompt_cache_miss_tokens` in `usage`.
@@ -35,6 +36,19 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 ```
+
+## Reasoning Effort
+
+Thinking models accept a `reasoning_effort` of `none` (thinking off), `low`, `high` (the default), or `max`:
+
+```rust
+let request = ChatCompletionRequest::builder("deepseek-flash")
+    .messages(vec![ChatMessage::user("Explain what cetology is.")])
+    .reasoning_effort(ReasoningEffort::Max)
+    .build();
+```
+
+When thinking mode is active, DeepSeek ignores `temperature`, `presence_penalty`, and `frequency_penalty`.
 
 ## Streaming Example with DeepSeek-R1 (Reasoning)
 
