@@ -202,3 +202,53 @@ fn test_tool_call_accumulator() {
     assert_eq!(calls[0].function.arguments, "{\"location\":\"Paris\"}");
 }
 
+#[test]
+fn test_serialize_chat_request_with_reasoning_effort() {
+    let req = ChatCompletionRequest::builder("deepseek-chat")
+        .messages(vec![ChatMessage::user("Hello")])
+        .reasoning_effort(ReasoningEffort::Max)
+        .build();
+
+    let val = serde_json::to_value(&req).unwrap();
+    assert_eq!(val["reasoning_effort"], "max");
+}
+
+#[test]
+fn test_serialize_chat_request_without_reasoning_effort() {
+    let req = ChatCompletionRequest::builder("deepseek-chat")
+        .messages(vec![ChatMessage::user("Hello")])
+        .build();
+
+    let val = serde_json::to_value(&req).unwrap();
+    assert!(val.get("reasoning_effort").is_none());
+}
+
+#[test]
+fn test_serialize_all_reasoning_effort_variants() {
+    let cases = [
+        (ReasoningEffort::None, "none"),
+        (ReasoningEffort::Low, "low"),
+        (ReasoningEffort::High, "high"),
+        (ReasoningEffort::Max, "max"),
+    ];
+
+    for (effort, expected) in cases {
+        let req = ChatCompletionRequest::builder("deepseek-chat")
+            .reasoning_effort(effort)
+            .build();
+        let val = serde_json::to_value(&req).unwrap();
+        assert_eq!(val["reasoning_effort"], expected);
+    }
+}
+
+#[test]
+fn test_deserialize_chat_request_with_reasoning_effort() {
+    let raw = json!({
+        "model": "deepseek-chat",
+        "messages": [{"role": "user", "content": "hi"}],
+        "reasoning_effort": "max"
+    });
+
+    let req: ChatCompletionRequest = serde_json::from_value(raw).unwrap();
+    assert_eq!(req.reasoning_effort, Some(ReasoningEffort::Max));
+}

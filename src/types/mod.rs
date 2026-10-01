@@ -8,8 +8,8 @@ pub mod response;
 pub mod tools;
 
 pub use chat::{
-    ChatMessage, ChatCompletionRequest, ChatCompletionRequestBuilder, ResponseFormat, Role,
-    StreamOptions,
+    ChatMessage, ChatCompletionRequest, ChatCompletionRequestBuilder, ReasoningEffort,
+    ResponseFormat, Role, StreamOptions,
 };
 pub use response::{
     ChatCompletionChunk, ChatCompletionResponse, Choice, ChunkChoice, ChunkDelta, PromptTokensDetails,
