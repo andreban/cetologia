@@ -9,17 +9,141 @@ use super::response::ResponseMessage;
 use super::tools::{Tool, ToolChoice};
 
 /// Role of a message in a conversation.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Role {
     /// System prompt or instructions.
     System,
     /// Human user prompt.
+    #[default]
     User,
     /// Assistant response.
     Assistant,
     /// Tool result response.
     Tool,
+}
+
+/// An image URL or `data:` URI inside an [`ContentPart::ImageUrl`] block.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ImageUrl {
+    /// Image URL or base64 data URI (e.g. `"data:image/png;base64,..."`).
+    pub url: String,
+    /// Optional resolution detail (`"low"`, `"high"`, `"auto"`, `"original"`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+}
+
+impl ImageUrl {
+    /// Creates an [`ImageUrl`] from a URL or `data:` URI.
+    pub fn new(url: impl Into<String>) -> Self {
+        Self {
+            url: url.into(),
+            detail: None,
+        }
+    }
+
+    /// Sets the optional detail level.
+    pub fn with_detail(mut self, detail: impl Into<String>) -> Self {
+        self.detail = Some(detail.into());
+        self
+    }
+}
+
+/// A single content part in a multimodal message (`text` or `image_url`).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ContentPart {
+    /// A plain text block.
+    Text {
+        /// The text content.
+        text: String,
+    },
+    /// An image block (`image_url`).
+    ImageUrl {
+        /// The image URL or base64 data URI.
+        image_url: ImageUrl,
+    },
+}
+
+impl ContentPart {
+    /// Creates a text content part.
+    pub fn text(text: impl Into<String>) -> Self {
+        Self::Text { text: text.into() }
+    }
+
+    /// Creates an `image_url` content part from a URL or `data:` URI.
+    pub fn image_url(url: impl Into<String>) -> Self {
+        Self::ImageUrl {
+            image_url: ImageUrl::new(url),
+        }
+    }
+
+    /// Creates an `image_url` content part from inline base64 data and MIME type.
+    pub fn image_base64(mime_type: impl AsRef<str>, data: impl AsRef<str>) -> Self {
+        Self::image_url(format!(
+            "data:{};base64,{}",
+            mime_type.as_ref(),
+            data.as_ref()
+        ))
+    }
+}
+
+/// Content of a [`ChatMessage`]: either a single string or a list of multimodal [`ContentPart`]s.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum MessageContent {
+    /// Plain string content.
+    Text(String),
+    /// Array of multimodal content parts (text and/or images).
+    Parts(Vec<ContentPart>),
+}
+
+impl MessageContent {
+    /// Returns the content if it is a single plain string (`MessageContent::Text`).
+    pub fn as_text(&self) -> Option<&str> {
+        match self {
+            Self::Text(s) => Some(s),
+            Self::Parts(_) => None,
+        }
+    }
+
+    /// Returns the content parts if this is `MessageContent::Parts`.
+    pub fn as_parts(&self) -> Option<&[ContentPart]> {
+        match self {
+            Self::Text(_) => None,
+            Self::Parts(parts) => Some(parts),
+        }
+    }
+}
+
+impl From<String> for MessageContent {
+    fn from(s: String) -> Self {
+        Self::Text(s)
+    }
+}
+
+impl From<&str> for MessageContent {
+    fn from(s: &str) -> Self {
+        Self::Text(s.to_owned())
+    }
+}
+
+impl From<Vec<ContentPart>> for MessageContent {
+    fn from(parts: Vec<ContentPart>) -> Self {
+        Self::Parts(parts)
+    }
+}
+
+impl PartialEq<str> for MessageContent {
+    fn eq(&self, other: &str) -> bool {
+        matches!(self, Self::Text(s) if s == other)
+    }
+}
+
+impl PartialEq<&str> for MessageContent {
+    fn eq(&self, other: &&str) -> bool {
+        matches!(self, Self::Text(s) if s == *other)
+    }
 }
 
 /// Message in a chat conversation.
@@ -28,9 +152,10 @@ pub struct ChatMessage {
     /// The role of the author.
     pub role: Role,
 
-    /// Text content of the message. Optional when `tool_calls` are present.
+    /// Content of the message (plain string or multimodal content parts).
+    /// Optional when `tool_calls` are present.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub content: Option<String>,
+    pub content: Option<MessageContent>,
 
     /// An optional name for the participant.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -56,18 +181,12 @@ pub struct ChatMessage {
     pub prefix: Option<bool>,
 }
 
-impl Default for Role {
-    fn default() -> Self {
-        Role::User
-    }
-}
-
 impl ChatMessage {
     /// Creates a system message.
     pub fn system(content: impl Into<String>) -> Self {
         Self {
             role: Role::System,
-            content: Some(content.into()),
+            content: Some(MessageContent::Text(content.into())),
             ..Default::default()
         }
     }
@@ -76,7 +195,16 @@ impl ChatMessage {
     pub fn user(content: impl Into<String>) -> Self {
         Self {
             role: Role::User,
-            content: Some(content.into()),
+            content: Some(MessageContent::Text(content.into())),
+            ..Default::default()
+        }
+    }
+
+    /// Creates a user message with multimodal content parts.
+    pub fn user_parts(parts: Vec<ContentPart>) -> Self {
+        Self {
+            role: Role::User,
+            content: Some(MessageContent::Parts(parts)),
             ..Default::default()
         }
     }
@@ -85,7 +213,7 @@ impl ChatMessage {
     pub fn assistant(content: impl Into<String>) -> Self {
         Self {
             role: Role::Assistant,
-            content: Some(content.into()),
+            content: Some(MessageContent::Text(content.into())),
             ..Default::default()
         }
     }
@@ -97,7 +225,7 @@ impl ChatMessage {
     ) -> Self {
         Self {
             role: Role::Assistant,
-            content,
+            content: content.map(MessageContent::Text),
             reasoning_content,
             ..Default::default()
         }
@@ -112,14 +240,29 @@ impl ChatMessage {
         }
     }
 
-    /// Creates a tool response message.
+    /// Creates a tool response message with text content.
     pub fn tool(tool_call_id: impl Into<String>, content: impl Into<String>) -> Self {
         Self {
             role: Role::Tool,
             tool_call_id: Some(tool_call_id.into()),
-            content: Some(content.into()),
+            content: Some(MessageContent::Text(content.into())),
             ..Default::default()
         }
+    }
+
+    /// Creates a tool response message with multimodal content parts.
+    pub fn tool_parts(tool_call_id: impl Into<String>, parts: Vec<ContentPart>) -> Self {
+        Self {
+            role: Role::Tool,
+            tool_call_id: Some(tool_call_id.into()),
+            content: Some(MessageContent::Parts(parts)),
+            ..Default::default()
+        }
+    }
+
+    /// Returns the message content if it is a single plain string (`MessageContent::Text`).
+    pub fn text(&self) -> Option<&str> {
+        self.content.as_ref()?.as_text()
     }
 }
 
@@ -127,7 +270,7 @@ impl From<ResponseMessage> for ChatMessage {
     fn from(msg: ResponseMessage) -> Self {
         Self {
             role: msg.role,
-            content: msg.content,
+            content: msg.content.map(MessageContent::Text),
             name: None,
             reasoning_content: msg.reasoning_content,
             tool_calls: msg.tool_calls,
@@ -141,7 +284,7 @@ impl From<&ResponseMessage> for ChatMessage {
     fn from(msg: &ResponseMessage) -> Self {
         Self {
             role: msg.role,
-            content: msg.content.clone(),
+            content: msg.content.clone().map(MessageContent::Text),
             name: None,
             reasoning_content: msg.reasoning_content.clone(),
             tool_calls: msg.tool_calls.clone(),

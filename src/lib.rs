@@ -43,7 +43,7 @@ pub mod error;
 pub mod network;
 pub mod types;
 
-pub use client::{CetologiaClient, CetologiaClientBuilder, DeepSeekClient, DEFAULT_BASE_URL};
+pub use client::{CetologiaClient, CetologiaClientBuilder, DEFAULT_BASE_URL, DeepSeekClient};
 pub use error::{CetologiaError, Result};
 pub use types::*;
 
@@ -52,8 +52,8 @@ pub mod prelude {
     pub use crate::client::{CetologiaClient, CetologiaClientBuilder, DeepSeekClient};
     pub use crate::error::{CetologiaError, Result};
     pub use crate::types::chat::{
-        ChatMessage, ChatCompletionRequest, ChatCompletionRequestBuilder, ReasoningEffort,
-        ResponseFormat, Role, StreamOptions,
+        ChatCompletionRequest, ChatCompletionRequestBuilder, ChatMessage, ContentPart, ImageUrl,
+        MessageContent, ReasoningEffort, ResponseFormat, Role, StreamOptions,
     };
     pub use crate::types::response::{
         ChatCompletionChunk, ChatCompletionResponse, Choice, ChunkChoice, ChunkDelta,

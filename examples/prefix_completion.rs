@@ -43,16 +43,13 @@ async fn main() -> Result<()> {
 
     let prefix_message = ChatMessage {
         role: Role::Assistant,
-        content: Some(prefix_text.to_string()),
+        content: Some(prefix_text.into()),
         prefix: Some(true),
         ..Default::default()
     };
 
     let request = ChatCompletionRequest::builder("deepseek-chat")
-        .messages(vec![
-            ChatMessage::user(prompt),
-            prefix_message,
-        ])
+        .messages(vec![ChatMessage::user(prompt), prefix_message])
         .temperature(0.3)
         .build();
 

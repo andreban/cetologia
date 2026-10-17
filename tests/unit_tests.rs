@@ -99,8 +99,14 @@ fn test_deserialize_stream_chunk_with_tool_calls() {
     let choice = &chunk.choices[0];
     let tc = &choice.delta.tool_calls.as_ref().unwrap()[0];
     assert_eq!(tc.id.as_deref(), Some("call_abc"));
-    assert_eq!(tc.function.as_ref().unwrap().name.as_deref(), Some("get_weather"));
-    assert_eq!(tc.function.as_ref().unwrap().arguments.as_deref(), Some("{\"city\":"));
+    assert_eq!(
+        tc.function.as_ref().unwrap().name.as_deref(),
+        Some("get_weather")
+    );
+    assert_eq!(
+        tc.function.as_ref().unwrap().arguments.as_deref(),
+        Some("{\"city\":")
+    );
 }
 
 #[test]
@@ -140,8 +146,11 @@ fn test_response_message_into_chat_message() {
 
     let chat_msg: ChatMessage = resp_msg.into();
     assert_eq!(chat_msg.role, Role::Assistant);
-    assert_eq!(chat_msg.content.as_deref(), Some("Answer"));
-    assert_eq!(chat_msg.reasoning_content.as_deref(), Some("Reasoning trace"));
+    assert_eq!(chat_msg.text(), Some("Answer"));
+    assert_eq!(
+        chat_msg.reasoning_content.as_deref(),
+        Some("Reasoning trace")
+    );
 }
 
 #[test]
@@ -168,7 +177,8 @@ fn test_tool_call_accumulator() {
                 }]
             }
         }]
-    })).unwrap();
+    }))
+    .unwrap();
 
     let chunk2: ChatCompletionChunk = serde_json::from_value(json!({
         "id": "chunk-2",
@@ -186,7 +196,8 @@ fn test_tool_call_accumulator() {
                 }]
             }
         }]
-    })).unwrap();
+    }))
+    .unwrap();
 
     if let Some(tool_calls) = &chunk1.choices[0].delta.tool_calls {
         accumulator.update_all(tool_calls);
@@ -251,4 +262,31 @@ fn test_deserialize_chat_request_with_reasoning_effort() {
 
     let req: ChatCompletionRequest = serde_json::from_value(raw).unwrap();
     assert_eq!(req.reasoning_effort, Some(ReasoningEffort::Max));
+}
+
+#[test]
+fn test_multimodal_content_parts_serialize_and_deserialize() {
+    let msg = ChatMessage::tool_parts(
+        "call_1",
+        vec![
+            ContentPart::text("{\"ok\":true}"),
+            ContentPart::image_base64("image/png", "aGVsbG8="),
+        ],
+    );
+
+    let val = serde_json::to_value(&msg).unwrap();
+    assert_eq!(
+        val,
+        json!({
+            "role": "tool",
+            "tool_call_id": "call_1",
+            "content": [
+                { "type": "text", "text": "{\"ok\":true}" },
+                { "type": "image_url", "image_url": { "url": "data:image/png;base64,aGVsbG8=" } }
+            ]
+        })
+    );
+
+    let restored: ChatMessage = serde_json::from_value(val).unwrap();
+    assert_eq!(restored, msg);
 }

@@ -8,12 +8,12 @@ pub mod response;
 pub mod tools;
 
 pub use chat::{
-    ChatMessage, ChatCompletionRequest, ChatCompletionRequestBuilder, ReasoningEffort,
-    ResponseFormat, Role, StreamOptions,
+    ChatCompletionRequest, ChatCompletionRequestBuilder, ChatMessage, ContentPart, ImageUrl,
+    MessageContent, ReasoningEffort, ResponseFormat, Role, StreamOptions,
 };
 pub use response::{
-    ChatCompletionChunk, ChatCompletionResponse, Choice, ChunkChoice, ChunkDelta, PromptTokensDetails,
-    ResponseMessage, Usage,
+    ChatCompletionChunk, ChatCompletionResponse, Choice, ChunkChoice, ChunkDelta,
+    PromptTokensDetails, ResponseMessage, Usage,
 };
 pub use tools::{
     ChunkFunctionCall, ChunkToolCall, FunctionCall, FunctionDefinition, NamedToolChoice,
