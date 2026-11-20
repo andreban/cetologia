@@ -99,7 +99,10 @@ impl CetologiaClient {
     ) -> Option<Result<ChatCompletionChunk>> {
         let sse = match event_res {
             Ok(ev) => ev,
-            Err(e) => return Some(Err(CetologiaError::Stream(e.to_string()))),
+            Err(e) => {
+                tracing::warn!(error = ?e, "SSE stream error");
+                return Some(Err(CetologiaError::Stream(format_lines_codec_error(&e))));
+            }
         };
 
         let data = sse.data?;
@@ -220,3 +223,34 @@ impl CetologiaClientBuilder {
         }
     }
 }
+
+/// Formats a [`LinesCodecError`] with its full underlying error source chain.
+///
+/// `tokio_util::codec::LinesCodecError` does not implement `Error::source()` in
+/// `tokio-util` 0.7.19, so `LinesCodecError::Io` must be unwrapped explicitly to
+/// traverse the wrapped `std::io::Error` (and its custom `reqwest`/`hyper` cause).
+fn format_lines_codec_error(err: &LinesCodecError) -> String {
+    match err {
+        LinesCodecError::Io(io_err) => format_error_chain(io_err),
+        LinesCodecError::MaxLineLengthExceeded => format_error_chain(err),
+    }
+}
+
+/// Formats an error along with its full `std::error::Error::source()` chain,
+/// joining distinct non-empty messages with `": "`.
+fn format_error_chain(err: &dyn std::error::Error) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    let mut current: Option<&dyn std::error::Error> = Some(err);
+    while let Some(e) = current {
+        let msg = e.to_string();
+        if !msg.is_empty() && parts.last() != Some(&msg) {
+            parts.push(msg);
+        }
+        current = e.source();
+    }
+    parts.join(": ")
+}
+
+#[cfg(test)]
+#[path = "client_tests.rs"]
+mod tests;
